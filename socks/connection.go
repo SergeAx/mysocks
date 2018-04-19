@@ -28,14 +28,9 @@ func (c connection) Handle() {
 	t := metricRequests.Start()
 	defer func() {
 		var addr string
-		var cmd string
+		var cmd int
 		if req != nil {
-			switch req.command {
-			case commandConnect:
-				cmd = "connect"
-			case commandUDPAssociate:
-				cmd = "udp"
-			}
+			cmd = int(req.command)
 			addr = req.Address()
 		}
 		metricRequests.Stop(t, cmd, addr, st.in, st.out, err)
