@@ -28,10 +28,17 @@ func (c connection) Handle() {
 	t := metricRequests.Start()
 	defer func() {
 		var addr string
+		var cmd string
 		if req != nil {
+			switch req.command {
+			case commandConnect:
+				cmd = "connect"
+			case commandUDPAssociate:
+				cmd = "udp"
+			}
 			addr = req.Address()
 		}
-		metricRequests.Stop(t, req.command, addr, st.in, st.out, err)
+		metricRequests.Stop(t, cmd, addr, st.in, st.out, err)
 	}()
 
 	if err = c.verifyVersion(); err != nil {
