@@ -35,7 +35,7 @@ func (m *metric) record(values []interface{}, t time.Time) {
 		}
 	}
 
-	p, err := influxdb.NewPoint(m.name, m.tags, rec, time.Now())
+	p, err := influxdb.NewPoint(m.name, m.tags, rec, t)
 	if err != nil {
 		panic(err)
 	}
