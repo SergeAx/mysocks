@@ -29,11 +29,15 @@ func (c connection) Handle() {
 	defer func() {
 		var addr string
 		var cmd int
+		var errs string
 		if req != nil {
 			cmd = int(req.command)
 			addr = req.Address()
 		}
-		metricRequests.Stop(t, cmd, addr, st.in, st.out, err)
+		if err != nil {
+			errs = err.Error()
+		}
+		metricRequests.Stop(t, cmd, addr, st.in, st.out, errs)
 	}()
 
 	if err = c.verifyVersion(); err != nil {
