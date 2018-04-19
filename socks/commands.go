@@ -5,10 +5,14 @@ import (
 	"sync"
 )
 
-func (c *connection) handleConnect(request *request) (err error) {
+type stat struct {
+	in, out int64
+}
+
+func (c *connection) handleConnect(request *request) (stat, error) {
 	remoteConn, err := c.conf.Dial("tcp", request.Address())
 	if err != nil {
-		return err
+		return stat{}, err
 	}
 
 	defer remoteConn.Close()
@@ -18,10 +22,10 @@ func (c *connection) handleConnect(request *request) (err error) {
 	return proxy(c.conn, remoteConn)
 }
 
-func (c *connection) handleUDPAssociate(request *request) error {
+func (c *connection) handleUDPAssociate(request *request) (stat, error) {
 	remoteConn, err := c.conf.Dial("udp", request.Address())
 	if err != nil {
-		return err
+		return stat{}, err
 	}
 
 	defer remoteConn.Close()
@@ -31,29 +35,31 @@ func (c *connection) handleUDPAssociate(request *request) error {
 	return proxy(c.conn, remoteConn)
 }
 
-func proxy(one, two io.ReadWriter) error {
+func proxy(one, two io.ReadWriter) (stat, error) {
+	var w1, w2 int64
 	var err1, err2 error
 	var wg sync.WaitGroup
 
 	wg.Add(2)
 
 	go func() {
-		_, err1 = io.Copy(one, two)
+		w1, err1 = io.Copy(two, one)
 		wg.Done()
 	}()
 	go func() {
-		_, err2 = io.Copy(two, one)
+		w2, err2 = io.Copy(one, two)
 		wg.Done()
 	}()
 
 	wg.Wait()
 
+	st := stat{w1, w2}
 	switch {
 	case err1 != nil:
-		return err1
+		return st, err1
 	case err2 != nil:
-		return err2
+		return st, err2
 	}
 
-	return nil
+	return st, nil
 }

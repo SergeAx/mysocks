@@ -3,10 +3,12 @@ package main
 import (
 	"net"
 	"github.com/aspcartman/mysocks/socks"
-	"github.com/sirupsen/logrus"
 	"os"
 	"strings"
+	"github.com/aspcartman/mysocks/env"
 )
+
+var log = env.Log.WithField("module", "main")
 
 func main() {
 	lst, err := net.Listen("tcp", "0.0.0.0:8080")
@@ -17,7 +19,7 @@ func main() {
 	socks.Serve(lst, &socks.Config{
 		Auth: authcheck(),
 		HandleError: func(stage string, err error) {
-			logrus.WithError(err).Error(stage)
+			log.WithError(err).Error(stage)
 		},
 		Dial: net.Dial,
 	})

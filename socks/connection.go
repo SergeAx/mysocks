@@ -3,7 +3,10 @@ package socks
 import (
 	"net"
 	"bufio"
+	"github.com/aspcartman/mysocks/monitoring"
 )
+
+var metricRequests = monitoring.NewEventMetric("requests", nil, "command", "addr", "in", "out", "err")
 
 type connection struct {
 	conn net.Conn
@@ -16,31 +19,45 @@ func (c connection) Handle() {
 	c.buf = bufio.NewReader(c.conn)
 	defer c.conn.Close()
 
-	if err := c.verifyVersion(); err != nil {
+	var (
+		err error
+		req *request
+		st  stat
+	)
+
+	t := metricRequests.Start()
+	defer func() {
+		var addr string
+		if req != nil {
+			addr = req.Address()
+		}
+		metricRequests.Stop(t, req.command, addr, st.in, st.out, err)
+	}()
+
+	if err = c.verifyVersion(); err != nil {
 		c.error("version verification", err)
 		return
 	}
 
-	if err := c.handshake(); err != nil {
+	if err = c.handshake(); err != nil {
 		c.error("handshake", err)
 		return
 	}
 
-	var err error
-	var req *request
 	if req, err = c.readRequest(); err != nil {
 		c.error("reading request", err)
 		return
 	} else if req.version != socks5version {
-		c.error("reading request", ErrVersionError)
+		err = ErrVersionError
+		c.error("reading request", err)
 		return
 	}
 
 	switch req.command {
 	case commandConnect:
-		err = c.handleConnect(req)
+		st, err = c.handleConnect(req)
 	case commandUDPAssociate:
-		err = c.handleUDPAssociate(req)
+		st, err = c.handleUDPAssociate(req)
 	default:
 		err = ErrCommandNotSupported
 	}
