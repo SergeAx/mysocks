@@ -6,6 +6,7 @@ import (
 
 	influxdb "github.com/influxdata/influxdb/client/v2"
 	"github.com/aspcartman/mysocks/env"
+	"sync"
 )
 
 var log = env.Log.WithField("module", "monitoring")
@@ -13,6 +14,7 @@ var log = env.Log.WithField("module", "monitoring")
 var (
 	client influxdb.Client
 	batch  influxdb.BatchPoints
+	mtx    sync.Mutex
 )
 
 func init() {
@@ -36,13 +38,7 @@ func init() {
 			panic(err)
 		}
 
-		batch, err = influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
-			Precision: "ms",
-			Database:  db,
-		})
-		if err != nil {
-			panic(err)
-		}
+		batch = newbatch(db)
 	} else {
 		client = nullclient{}
 		batch = nullbatch{}
@@ -51,9 +47,26 @@ func init() {
 	go func() {
 		for {
 			time.Sleep(5 * time.Second)
-			if err := client.Write(batch); err != nil {
+
+			b := newbatch(db)
+			mtx.Lock()
+			b, batch = batch, b
+			mtx.Unlock()
+
+			if err := client.Write(b); err != nil {
 				log.WithError(err).Error("failed writing influxdb metrics")
 			}
 		}
 	}()
+}
+
+func newbatch(db string) influxdb.BatchPoints {
+	b, err := influxdb.NewBatchPoints(influxdb.BatchPointsConfig{
+		Precision: "ms",
+		Database:  db,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

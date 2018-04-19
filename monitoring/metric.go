@@ -40,5 +40,7 @@ func (m *metric) record(values []interface{}, t time.Time) {
 		panic(err)
 	}
 
+	mtx.Lock()
 	batch.AddPoint(p)
+	mtx.Unlock()
 }
